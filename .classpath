@@ -1,0 +1,11 @@
+<classpath>
+  <classpathentry excluding="main\java\|main\resources\|test\scala-2.11\|test\scala\|test\java\|test\resources\" kind="src" path="src"/>
+  <classpathentry kind="con" path="org.scala-ide.sdt.launching.SCALA_CONTAINER"/>
+  <classpathentry kind="lib" path="C:\Users\Eugenio\.ivy2\cache\net.debasishg\redisclient_2.11\jars\redisclient_2.11-3.0.jar"/>
+  <classpathentry kind="lib" path="C:\Users\Eugenio\.ivy2\cache\commons-pool\commons-pool\jars\commons-pool-1.6.jar"/>
+  <classpathentry kind="lib" path="C:\Users\Eugenio\.ivy2\cache\org.slf4j\slf4j-api\jars\slf4j-api-1.7.2.jar"/>
+  <classpathentry kind="lib" path="C:\Users\Eugenio\.ivy2\cache\com.typesafe.akka\akka-actor_2.11\jars\akka-actor_2.11-2.3.6.jar"/>
+  <classpathentry kind="lib" path="C:\Users\Eugenio\.ivy2\cache\com.typesafe\config\bundles\config-1.2.1.jar"/>
+  <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+  <classpathentry kind="output" path="bin"/>
+</classpath>
