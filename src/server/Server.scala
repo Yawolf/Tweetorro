@@ -22,7 +22,6 @@ class Server extends ServerTrait {
     lista.takeRight(number)
   }
   
-  
   def sendTweet(tweet: (String, String, String)): Boolean = {
     val id = db.incr("tweetID")
     val message = tweet._2
@@ -91,9 +90,15 @@ class Server extends ServerTrait {
     }
   }
   
-  def modifyRemoteProfile(user: String, param: String): Boolean = { //TODO
-    
-    true
+  def modifyRemoteProfile(user: String, param: String, value: String): Boolean = { //TODO
+    db.set(s"TWEETORRO:USERS:$user:$param", value) match {
+      case true => 
+        true
+      case false => 
+        println("Some error ocurred setting the value at the server. =( ")
+        println("This shouldnt never ever ever ever happen... So if you see this line you are allowed to scream and panic")
+        false
+    }    
   }
   
   def follow(user:String, userF: String): Boolean = {
@@ -132,6 +137,7 @@ object Server {
       registry.rebind("tweetorro", stub)
       
       println("Server ready :D")
+      println("")
     }
     catch {
       case e: Exception => e printStackTrace
