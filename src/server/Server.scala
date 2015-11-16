@@ -16,9 +16,9 @@ class Server extends ServerTrait {
     val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:TWEETS",0,-1)
     listaIDs.get.flatten.foreach {
       x => lista.::(db.get("TWEETORRO:TWEETS:tweet"+s"$x:id").get,
-          db.get("TWEETORRO:TWEETS:tweet"+s"$x:user").get,
-          db.get("TWEETORRO:TWEETS:tweet"+s"$x:message").get,
-          db.get("TWEETORRO:TWEETS:tweet"+s"$x:date").get)}
+          db.get("TWEETORRO:TWEETS:tweet"+s"$x:USER").get,
+          db.get("TWEETORRO:TWEETS:tweet"+s"$x:MESSAGE").get,
+          db.get("TWEETORRO:TWEETS:tweet"+s"$x:DATE").get)}
     lista.takeRight(number)
   }
   
@@ -27,19 +27,23 @@ class Server extends ServerTrait {
     val message = tweet._2
     val lista = db.lrange(s"TWEETORRO:USERS:$tweet._1:FOLLOWERS", 0,-1)
     lista.get.flatten.foreach { x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", id) }
-    db.lpush(s"TWEETORRO:USERS:$tweet(._1):TWEETS", id)
-    db.lpush(s"TWEETORRO:TWEETS:tweet"+s"$id:user", tweet._1)
-    db.lpush(s"TWEETORRO:TWEETS:tweet"+s"$id:message",message.take(140))
-    db.lpush(s"TWEETORRO:TWEETS:tweet"+s"$id:date",tweet._3)
-    db.lpush(s"TWEETORRO:TWEETS:tweet"+s"$id:id",id)
+    db.set(s"TWEETORRO:USERS:$tweet(._1):TWEETS", id)
+    db.set(s"TWEETORRO:TWEETS:tweet"+s"$id:USER", tweet._1)
+    db.set(s"TWEETORRO:TWEETS:tweet"+s"$id:MESSAGE",message.take(140))
+    db.set(s"TWEETORRO:TWEETS:tweet"+s"$id:DATE",tweet._3)
+    db.set(s"TWEETORRO:TWEETS:tweet"+s"$id:ID",id)
     true
   }
   
   def retweet(user: String, tweetID: String): Boolean = {
-    val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0,-1)
-    lista.get.flatten.foreach { x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", tweetID) }
-    db.lpush(s"TWEETORRO:USERS:$user:TWEETS", tweetID)
-    true
+    if (db.get(s"TWEETORRO:TWEETS:$tweetID:user") != user){
+      val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0,-1)
+      lista.get.flatten.foreach { x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", tweetID) }
+      db.lpush(s"TWEETORRO:USERS:$user:TWEETS", tweetID)
+      true
+    }else{
+      false
+    }
   }
   
   def followers(user: String,number: Int): List[String] = {
