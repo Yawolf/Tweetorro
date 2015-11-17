@@ -4,6 +4,9 @@ import java.rmi.Remote
 import java.rmi.RemoteException
 
 trait ServerTrait extends Remote {
+  
+  @throws(classOf[RemoteException])
+  def searchUsers(name: String): List[String]
 
   @throws(classOf[RemoteException])
   def sendDM(DM:(String,String,String),userTo: String) : Boolean
