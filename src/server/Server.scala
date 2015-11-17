@@ -11,27 +11,36 @@ import java.util.Calendar
 class Server extends ServerTrait {
   val db: RedisClient = new RedisClient("localhost",6379)
   
+  def sendDM(DM:(String,String,String),userTo: String) : Boolean = {
+    true
+  }
+  
+  def getDM(user: String, number: Int) : List[(String, String, String, String)] = {
+    List()
+  }
+  
   def getTweets(user: String,number: Int): List[(String, String, String, String)] = {
-    var lista  = List(): List[(String,String,String,String)]
     val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:TWEETS",0,-1)
-    listaIDs.get.flatten.foreach {
-      x => lista.::(db.get("TWEETORRO:TWEETS:tweet"+s"$x:id").get,
-          db.get("TWEETORRO:TWEETS:tweet"+s"$x:USER").get,
-          db.get("TWEETORRO:TWEETS:tweet"+s"$x:MESSAGE").get,
-          db.get("TWEETORRO:TWEETS:tweet"+s"$x:DATE").get)}
-    lista.takeRight(number)
+    listaIDs.get.flatten.map(getTweetTuple(_)) takeRight(number)
+  }
+
+  def getTweetTuple(tweet: String): (String, String, String, String) = {
+    (db.get(s"TWEETORRO:TWEETS:$tweet:USER").get,
+      db.get(s"TWEETORRO:TWEETS:$tweet:MESSAGE").get,
+      db.get(s"TWEETORRO:TWEETS:$tweet:DATE").get,
+      db.get(s"TWEETORRO:TWEETS:$tweet:ID").get)
   }
   
   def sendTweet(tweet: (String, String, String)): Boolean = {
-    val id = db.incr("tweetID")
-    val message = tweet._2
+    val id = db.incr("TWEETORRO:tweetID") getOrElse " "
+    val message = tweet._2.take(140)
+    db.lpush(s"TWEETORRO:USERS:${tweet._1}:TWEETS", s"tweet$id")
     val lista = db.lrange(s"TWEETORRO:USERS:$tweet._1:FOLLOWERS", 0,-1)
-    lista.get.flatten.foreach { x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", id) }
-    db.set(s"TWEETORRO:USERS:$tweet(._1):TWEETS", id)
-    db.set(s"TWEETORRO:TWEETS:tweet"+s"$id:USER", tweet._1)
-    db.set(s"TWEETORRO:TWEETS:tweet"+s"$id:MESSAGE",message.take(140))
-    db.set(s"TWEETORRO:TWEETS:tweet"+s"$id:DATE",tweet._3)
-    db.set(s"TWEETORRO:TWEETS:tweet"+s"$id:ID",id)
+    lista.get.flatten.map(x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", s"tweet$id"))
+    db.set(s"TWEETORRO:TWEETS:tweet$id:USER", tweet._1)
+    db.set(s"TWEETORRO:TWEETS:tweet$id:MESSAGE",message)
+    db.set(s"TWEETORRO:TWEETS:tweet$id:DATE",tweet._3)
+    db.set(s"TWEETORRO:TWEETS:tweet$id:ID",s"tweet$id")
     true
   }
   
@@ -66,7 +75,7 @@ class Server extends ServerTrait {
       false
     else {
       db.set(s"$dbUser:PASSWORD",pass)
-      db.set(s"$dbUser:ONLINE", false)
+      db.set(s"$dbUser:LOGGED", false)
     }
   }
 
@@ -76,8 +85,7 @@ class Server extends ServerTrait {
       val user_pass = db.get(dbUserPass)
       user_pass match {
         case Some(value) =>
-          value == pass
-          db.set(s"TWEETORRO:USERS:$user:LOGGED",true)
+          (value == pass) && db.set(s"TWEETORRO:USERS:$user:LOGGED",true)
         case None =>
           false
       }

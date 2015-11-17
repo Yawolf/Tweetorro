@@ -15,6 +15,7 @@ lazy val root = (project in file(".")).
   settings(
     // set the name of the project
     name := "Server",
+	scalacOptions += "-feature",
     scalaSource in Compile := baseDirectory.value / "src",
 
     libraryDependencies ++= Seq(

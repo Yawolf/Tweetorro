@@ -2,3 +2,5 @@ target/
 ./bin/
 *.rdb
 *.class
+.cache-main
+.project
