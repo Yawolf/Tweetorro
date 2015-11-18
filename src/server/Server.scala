@@ -11,48 +11,77 @@ import java.util.Calendar
 class Server extends ServerTrait {
   val db: RedisClient = new RedisClient("localhost",6379)
   
+  def searchUsers(name: String) : List[String] = {
+    db.lrange("TWEETORRO:USERS", 0, -1).getOrElse(List()).flatten.filter {x => x.contains(name)}
+  }
+  
+  def sendDM(DM:(String,String,String),userTo: String) : Boolean = {
+    val user = DM._1
+    val id = db.incr("TWEETORRO:DMID") getOrElse " "
+    db.lpush(s"TWEETORRO:USERS:$userTo:DM", id)
+    db.lpush(s"TWEETORRO:USERS:$user:DM", id)
+    db.set(s"TWEETORRO:DM:$id:ID",id)
+    db.set(s"TWEETORRO:DM:$id:USER",user)
+    db.set(s"TWEETORRO:DM:$id:MESSAGE",DM._2)
+    db.set(s"TWEETORRO:DM:$id:DATE",DM._3)
+    true
+  }
+  
+  def getDM(user: String, number: Int) : List[(String, String, String, String)] = {
+    val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:DM", 0, -1)
+    listaIDs.getOrElse(List()).flatten.map(getDMTuple(_)).sortBy(_._4).take(number)
+  }
+  
+  def getDMTuple(DM: String): (String,String,String,String) = {
+    (db.get(s"TWEETORRO:DM:$DM:ID").get,
+    db.get(s"TWEETORRO:DM:$DM:USER").get,
+    db.get(s"TWEETORRO:DM:$DM:MESSAGE").get,
+    db.get(s"TWEETORRO:DM:$DM:DATE").get)
+  }
+  
   def getTweets(user: String,number: Int): List[(String, String, String, String)] = {
     val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:TWEETS",0,-1)
-    listaIDs.get.flatten.map(getTweetTuple(_)) takeRight(number)
+    listaIDs.getOrElse(List()).flatten.map(getTweetTuple(_)).sortBy(_._4).take(number)
   }
 
   def getTweetTuple(tweet: String): (String, String, String, String) = {
-    (db.get(s"TWEETORRO:TWEETS:$tweet:USER").get,
-      db.get(s"TWEETORRO:TWEETS:$tweet:MESSAGE").get,
-      db.get(s"TWEETORRO:TWEETS:$tweet:DATE").get,
-      db.get(s"TWEETORRO:TWEETS:$tweet:ID").get)
+    (db.get(s"TWEETORRO:TWEETS:$tweet:ID").get,
+    db.get(s"TWEETORRO:TWEETS:$tweet:USER").get,
+    db.get(s"TWEETORRO:TWEETS:$tweet:MESSAGE").get,
+    db.get(s"TWEETORRO:TWEETS:$tweet:DATE").get)
   }
   
   def sendTweet(tweet: (String, String, String)): Boolean = {
     val id = db.incr("TWEETORRO:tweetID") getOrElse " "
-    val message = tweet._2
     db.lpush(s"TWEETORRO:USERS:${tweet._1}:TWEETS", s"tweet$id")
-
     val lista = db.lrange(s"TWEETORRO:USERS:$tweet._1:FOLLOWERS", 0,-1)
-    lista.get.flatten.map(x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", s"tweet$id"))
-
+    lista.getOrElse(List()).flatten.foreach{x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", s"tweet$id")}
     db.set(s"TWEETORRO:TWEETS:tweet$id:USER", tweet._1)
-    db.set(s"TWEETORRO:TWEETS:tweet$id:MESSAGE",message)
+    db.set(s"TWEETORRO:TWEETS:tweet$id:MESSAGE",tweet._2)
     db.set(s"TWEETORRO:TWEETS:tweet$id:DATE",tweet._3)
-    db.set(s"TWEETORRO:TWEETS:tweet$id:ID",s"tweet$id")
+    db.set(s"TWEETORRO:TWEETS:tweet$id:ID",id)
     true
   }
   
   def retweet(user: String, tweetID: String): Boolean = {
-    val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0,-1)
-    lista.get.flatten.foreach { x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", tweetID) }
-    db.lpush(s"TWEETORRO:USERS:$user:TWEETS", tweetID)
-    true
+    if (db.get(s"TWEETORRO:TWEETS:$tweetID:user") != user){
+      val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0,-1)
+      lista.getOrElse(List()).flatten.foreach { x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", tweetID) }
+      db.lpush(s"TWEETORRO:USERS:$user:TWEETS", tweetID)
+      true
+    }else{
+      false
+    }
   }
   
   def followers(user: String,number: Int): List[String] = {
     val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0,number)
-    lista.get.flatten
+    lista.getOrElse(List()).flatten
   }
   
   def following(user: String,number: Int): List[String] = {
     val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWING", 0,number)
-    lista.get.flatten
+    lista.getOrElse(List()).flatten
   }
   
   def logoutRemote(user: String): Boolean = {
@@ -64,6 +93,7 @@ class Server extends ServerTrait {
     if (db.exists(s"$dbUser:PASSWORD"))
       false
     else {
+      db.lpush(s"TWEETORRO:USERS", user) //Insertamos el nombre de la persona en la lista de usuarios
       db.set(s"$dbUser:PASSWORD",pass)
       db.set(s"$dbUser:LOGGED", false)
     }
@@ -92,7 +122,7 @@ class Server extends ServerTrait {
     }
   }
   
-  def modifyRemoteProfile(user: String, param: String, value: String): Boolean = { //TODO
+  def modifyRemoteProfile(user: String, param: String, value: String): Boolean = {
     db.set(s"TWEETORRO:USERS:$user:$param", value) match {
       case true => 
         true
@@ -108,7 +138,9 @@ class Server extends ServerTrait {
       case Some("true") =>
         db.lpush(s"TWEETORRO:USERS:$user:FOLLOWING", userF)
         db.lpush(s"TWEETORRO:USERS:$userF:FOLLOWERS", user)
-        println("Added following y follower :D")
+        val listTweetsFollow = db.lrange(s"TWEETORRO:USERS:$userF:TWEETS",0,-1)
+        listTweetsFollow.getOrElse(List()).flatten.map( 
+          db.lpush(s"TWEETORRO:USERS:$user:TWEETS", _))
         true
       case _ => 
         false
@@ -120,6 +152,9 @@ class Server extends ServerTrait {
       case Some("true") =>
         db.lrem(s"TWEETORRO:USERS:$userLogged:FOLLOWING", 1, userF)
         db.lrem(s"TWEETORRO:USERS:$userF:FOLLOWERS", 1, userLogged)
+        val listTweets = db.lrange(s"TWEETORRO:USERS:$userF:TWEETS",0,-1)
+        listTweets.getOrElse(List()).flatten.map ( 
+          db.lrem(s"TWEETORRO:USERS:$userLogged:TWEETS", 1, _))
         true
       case _ =>
         println("Usuario no está loggeado")
