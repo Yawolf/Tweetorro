@@ -66,7 +66,10 @@ class Server extends ServerTrait {
   def retweet(user: String, tweetID: String): Boolean = {
     if (db.get(s"TWEETORRO:TWEETS:$tweetID:user") != user){
       val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0,-1)
-      lista.getOrElse(List()).flatten.foreach { x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", tweetID) }
+      lista.getOrElse(List()).flatten.foreach { x =>
+        if (!db.lrange("TWEETORRO:USERS:$x:TWEETS", 0, -1).get.contains(tweetID))
+          db.lpush(s"TWEETORRO:USERS:$x:TWEETS", tweetID)
+      }
       db.lpush(s"TWEETORRO:USERS:$user:TWEETS", tweetID)
       true
     }else{
@@ -172,7 +175,6 @@ object Server {
       val stub = UnicastRemoteObject.exportObject(server,0).asInstanceOf[ServerTrait]
       val registry = LocateRegistry.createRegistry(1099)
       registry.rebind("tweetorro", stub)
-      
       println("Server ready :D")
       println("")
     }
