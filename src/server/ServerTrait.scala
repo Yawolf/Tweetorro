@@ -3,16 +3,23 @@ package server
 import java.rmi.Remote
 import java.rmi.RemoteException
 
+object Shared {
+  case class DMTweet(user: String, msg: String, date: String)
+  case class DMT(id: String, user: String, msg: String, date: String)
+  case class Test(f: Int => Unit)
+}
+
 trait ServerTrait extends Remote {
+  import Shared._
   
   @throws(classOf[RemoteException])
   def searchUsers(name: String): List[String]
 
   @throws(classOf[RemoteException])
-  def sendDM(DM:(String,String,String),userTo: String) : Boolean
+  def sendDM(dm: DMTweet, userTo: String): Unit
   
   @throws(classOf[RemoteException])
-  def getDM(user: String, number: Int) : List[(String, String, String, String)]
+  def getDM(user: String, number: Int): List[DMT]
 
   @throws(classOf[RemoteException])
   def createUser(user: String, pass: String): Boolean
@@ -21,7 +28,7 @@ trait ServerTrait extends Remote {
   def login(user: String, pass: String): Boolean
   
   @throws(classOf[RemoteException])
-  def sendTweet(tweet: (String, String, String)): Boolean
+  def sendTweet(tweet: DMTweet): Unit
 
   @throws(classOf[RemoteException])
   def retweet(user: String, tweetID: String): Boolean
@@ -48,7 +55,10 @@ trait ServerTrait extends Remote {
   def modifyRemoteProfile(user: String, param: String, value: String): Boolean
 
   @throws(classOf[RemoteException])
-  def getTweets(user: String, number: Int): List[(String, String, String, String)]
+  def getTweets(user: String, number: Int): List[DMT]
+
+  @throws(classOf[RemoteException])
+  def test(f: Test): Unit
 }
 
 

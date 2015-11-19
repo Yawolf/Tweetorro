@@ -4,3 +4,8 @@ target/
 *.class
 .cache-main
 .project
+/.ensime
+/.ensime_cache/dep-src/source-jars/akka/Main.scala
+/.ensime_cache/dep-src/source-jars/akka/actor/Actor.scala
+/*.scala
+.ensime_cache

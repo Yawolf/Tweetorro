@@ -8,59 +8,60 @@ import com.redis._
 import sun.util.calendar.JulianCalendar.Date
 import java.util.Calendar
 
+import Shared._
+
 class Server extends ServerTrait {
   val db: RedisClient = new RedisClient("localhost",6379)
   
   def searchUsers(name: String) : List[String] = {
-    db.lrange("TWEETORRO:USERS", 0, -1).getOrElse(List()).flatten.filter {x => x.contains(name)}
+    db.lrange("TWEETORRO:USERS", 0, -1)
+      .getOrElse(List()).flatten
+      .filter(_.contains(name))
   }
   
-  def sendDM(DM:(String,String,String),userTo: String) : Boolean = {
-    val user = DM._1
-    val id = db.incr("TWEETORRO:DMID") getOrElse " "
-    db.lpush(s"TWEETORRO:USERS:$userTo:DM", id)
-    db.lpush(s"TWEETORRO:USERS:$user:DM", id)
-    db.set(s"TWEETORRO:DM:$id:ID",id)
-    db.set(s"TWEETORRO:DM:$id:USER",user)
-    db.set(s"TWEETORRO:DM:$id:MESSAGE",DM._2)
-    db.set(s"TWEETORRO:DM:$id:DATE",DM._3)
-    true
+  def sendDM(dm: DMTweet, userTo: String) : Unit = {
+    val id = db.incr("TWEETORRO:DMID") getOrElse 0l
+    db.lpush(s"TWEETORRO:USERS:${userTo}:DM", id)
+    db.lpush(s"TWEETORRO:USERS:${dm.user}:DM", id)
+    db.set(s"TWEETORRO:DM:$id:ID", id)
+    db.set(s"TWEETORRO:DM:$id:USER", dm.user)
+    db.set(s"TWEETORRO:DM:$id:MESSAGE", dm.msg)
+    db.set(s"TWEETORRO:DM:$id:DATE", dm.date)
   }
   
-  def getDM(user: String, number: Int) : List[(String, String, String, String)] = {
+  def getDM(user: String, number: Int) : List[DMT] = {
     val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:DM", 0, -1)
-    listaIDs.getOrElse(List()).flatten.map(getDMTuple(_)).sortBy(_._4).take(number)
+    listaIDs.getOrElse(List()).flatten.map(getDMTuple(_)).sortBy(_.date).take(number)
   }
   
-  def getDMTuple(DM: String): (String,String,String,String) = {
-    (db.get(s"TWEETORRO:DM:$DM:ID").get,
-    db.get(s"TWEETORRO:DM:$DM:USER").get,
-    db.get(s"TWEETORRO:DM:$DM:MESSAGE").get,
-    db.get(s"TWEETORRO:DM:$DM:DATE").get)
+  def getDMTuple(DM: String): DMT = {
+    DMT(db.get(s"TWEETORRO:DM:$DM:ID").getOrElse("noid"),
+    db.get(s"TWEETORRO:DM:$DM:USER").getOrElse("nouser"),
+    db.get(s"TWEETORRO:DM:$DM:MESSAGE").getOrElse("nomessage"),
+    db.get(s"TWEETORRO:DM:$DM:DATE").getOrElse("nodate"))
   }
   
-  def getTweets(user: String,number: Int): List[(String, String, String, String)] = {
+  def getTweets(user: String,number: Int): List[DMT] = {
     val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:TWEETS",0,-1)
-    listaIDs.getOrElse(List()).flatten.map(getTweetTuple(_)).sortBy(_._4).take(number)
+    listaIDs.getOrElse(List()).flatten.map(getTweetTuple(_)).sortBy(_.date).take(number)
   }
 
-  def getTweetTuple(tweet: String): (String, String, String, String) = {
-    (db.get(s"TWEETORRO:TWEETS:$tweet:ID").get,
-    db.get(s"TWEETORRO:TWEETS:$tweet:USER").get,
-    db.get(s"TWEETORRO:TWEETS:$tweet:MESSAGE").get,
-    db.get(s"TWEETORRO:TWEETS:$tweet:DATE").get)
+  def getTweetTuple(tweet: String): DMT = {
+    DMT(db.get(s"TWEETORRO:TWEETS:$tweet:ID").getOrElse("noid"),
+    db.get(s"TWEETORRO:TWEETS:$tweet:USER").getOrElse("nouser"),
+    db.get(s"TWEETORRO:TWEETS:$tweet:MESSAGE").getOrElse("nomessage"),
+    db.get(s"TWEETORRO:TWEETS:$tweet:DATE").getOrElse("nodate"))
   }
   
-  def sendTweet(tweet: (String, String, String)): Boolean = {
-    val id = db.incr("TWEETORRO:tweetID") getOrElse " "
-    db.lpush(s"TWEETORRO:USERS:${tweet._1}:TWEETS", s"tweet$id")
-    val lista = db.lrange(s"TWEETORRO:USERS:$tweet._1:FOLLOWERS", 0,-1)
+  def sendTweet(tweet: DMTweet): Unit = {
+    val id = db.incr("TWEETORRO:tweetID") getOrElse 0l
+    db.lpush(s"TWEETORRO:USERS:${tweet.user}:TWEETS", id)
+    val lista = db.lrange(s"TWEETORRO:USERS:${tweet.user}:FOLLOWERS", 0,-1)
     lista.getOrElse(List()).flatten.foreach{x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", s"tweet$id")}
-    db.set(s"TWEETORRO:TWEETS:tweet$id:USER", tweet._1)
-    db.set(s"TWEETORRO:TWEETS:tweet$id:MESSAGE",tweet._2)
-    db.set(s"TWEETORRO:TWEETS:tweet$id:DATE",tweet._3)
+    db.set(s"TWEETORRO:TWEETS:tweet$id:USER", tweet.user)
+    db.set(s"TWEETORRO:TWEETS:tweet$id:MESSAGE",tweet.msg)
+    db.set(s"TWEETORRO:TWEETS:tweet$id:DATE",tweet.date)
     db.set(s"TWEETORRO:TWEETS:tweet$id:ID",id)
-    true
   }
   
   def retweet(user: String, tweetID: String): Boolean = {
@@ -78,12 +79,12 @@ class Server extends ServerTrait {
   }
   
   def followers(user: String,number: Int): List[String] = {
-    val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0,number)
+    val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0, number)
     lista.getOrElse(List()).flatten
   }
   
   def following(user: String,number: Int): List[String] = {
-    val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWING", 0,number)
+    val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWING", 0, number)
     lista.getOrElse(List()).flatten
   }
   
@@ -165,6 +166,9 @@ class Server extends ServerTrait {
     }
   }
 
+  def test(f: Shared.Test): Unit = {
+    f.f(5)
+  }
 }
 
 object Server {
