@@ -13,6 +13,9 @@ trait ServerTrait extends Remote {
   import Shared._
   
   @throws(classOf[RemoteException])
+  def registerForCallback(userName: String,callback: ClientTrait): Unit
+  
+  @throws(classOf[RemoteException])
   def searchUsers(name: String): List[String]
 
   @throws(classOf[RemoteException])

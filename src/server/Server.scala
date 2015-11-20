@@ -7,11 +7,16 @@ import scala.language.postfixOps
 import com.redis._
 import sun.util.calendar.JulianCalendar.Date
 import java.util.Calendar
-
 import Shared._
+import java.util.HashMap
 
 class Server extends ServerTrait {
   val db: RedisClient = new RedisClient("localhost",6379)
+  val callbacks = new HashMap[String, ClientTrait]
+  
+  def registerForCallback(userName: String,callback: ClientTrait): Unit = {
+    callbacks.put(userName, callback)
+  }
   
   def searchUsers(name: String) : List[String] = {
     db.lrange("TWEETORRO:USERS", 0, -1)
@@ -57,11 +62,18 @@ class Server extends ServerTrait {
     val id = db.incr("TWEETORRO:tweetID") getOrElse 0l
     db.lpush(s"TWEETORRO:USERS:${tweet.user}:TWEETS", id)
     val lista = db.lrange(s"TWEETORRO:USERS:${tweet.user}:FOLLOWERS", 0,-1)
-    lista.getOrElse(List()).flatten.foreach{x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", s"tweet$id")}
+    lista.getOrElse(List()).flatten.foreach{ x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", s"tweet$id") }
+    lista.getOrElse(List()).flatten.filter { x => 
+      callbacks.containsKey(x) }.map { x => 
+        sendNotification(callbacks.get(x)) }
     db.set(s"TWEETORRO:TWEETS:tweet$id:USER", tweet.user)
     db.set(s"TWEETORRO:TWEETS:tweet$id:MESSAGE",tweet.msg)
     db.set(s"TWEETORRO:TWEETS:tweet$id:DATE",tweet.date)
     db.set(s"TWEETORRO:TWEETS:tweet$id:ID",id)
+  }
+  
+  def sendNotification(client: ClientTrait): Unit = {
+    client.notifyMe()
   }
   
   def retweet(user: String, tweetID: String): Boolean = {
