@@ -13,12 +13,12 @@ import java.util.HashMap
 
 class Server extends ServerTrait {
   val db: RedisClient = new RedisClient("localhost",6379)
-  val callbacks = new HashMap[String, client.ClientTrait]
+  val connected = Map[String,client.ClientTrait]()
   
   def registerForCallback(userName: String,callback: client.ClientTrait): Unit = {
-    callbacks.put(userName, callback)
+    println("Una persona se acaba de loggear")
+    connected.put(userName, callback)
   }
-  val connected = Map[String,client.ClientTrait]()
   
   def searchUsers(name: String) : List[String] = {
     db.lrange("TWEETORRO:USERS", 0, -1)
@@ -36,8 +36,8 @@ class Server extends ServerTrait {
     db.set(s"TWEETORRO:DM:$id:DATE", dm.date)
     val lista = db.lrange(s"TWEETORRO:USERS:$userTo:DM", 0, -1)
     lista.getOrElse(List()).flatten.filter { x => 
-      callbacks.containsKey(x) }.map { x => 
-        sendDMNotification(callbacks.get(x)) }
+      connected.contains(x) }.map { x => 
+        sendDMNotification(connected.get(x).get) }
   }
   
   def sendDMNotification(cliente: client.ClientTrait): Unit = {
@@ -58,7 +58,7 @@ class Server extends ServerTrait {
   
   def getTweets(user: String,number: Int): List[DMT] = {
     val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:TWEETS",0,-1)
-    listaIDs.getOrElse(List()).flatten.map(getTweetTuple(_)).sortBy(_.date).take(number)
+    listaIDs.getOrElse(List()).flatten.map(getTweetTuple(_)).sortBy(_.date).reverse.take(number)
   }
 
   def getTweetTuple(tweet: String): DMT = {
@@ -71,11 +71,12 @@ class Server extends ServerTrait {
   def sendTweet(tweet: DMTweet): Unit = {
     val id = db.incr("TWEETORRO:tweetID") getOrElse 0l
     db.lpush(s"TWEETORRO:USERS:${tweet.user}:TWEETS", id)
-    val lista = db.lrange(s"TWEETORRO:USERS:${tweet.user}:FOLLOWERS", 0,-1)
+    val user = tweet.user
+    val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0,-1)
     lista.getOrElse(List()).flatten.foreach{ x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", s"tweet$id") }
     lista.getOrElse(List()).flatten.filter { x => 
-      callbacks.containsKey(x) }.map { x => 
-        sendNotification(callbacks.get(x)) }
+      connected.contains(x) }.map { x => 
+        sendNotification(connected.get(x).get) }
     db.set(s"TWEETORRO:TWEETS:tweet$id:USER", tweet.user)
     db.set(s"TWEETORRO:TWEETS:tweet$id:MESSAGE",tweet.msg)
     db.set(s"TWEETORRO:TWEETS:tweet$id:DATE",tweet.date)
@@ -94,8 +95,8 @@ class Server extends ServerTrait {
           db.lpush(s"TWEETORRO:USERS:$x:TWEETS", tweetID)
       }
       lista.getOrElse(List()).flatten.filter { x => 
-      callbacks.containsKey(x) }.map { x => 
-        sendNotification(callbacks.get(x)) }
+      connected.contains(x) }.map { x => 
+        sendNotification(connected.get(x).get) }
       db.lpush(s"TWEETORRO:USERS:$user:TWEETS", tweetID)
       true
     }else{
