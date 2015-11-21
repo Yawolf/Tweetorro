@@ -168,10 +168,10 @@ class Server extends ServerTrait {
     }
   }
 
-  def justRegisterMe(name: String): Unit = {
+  def justRegisterMe(name: String, port: Int): Unit = {
     try {
       Thread.sleep(2000)
-      val registry = LocateRegistry getRegistry("localhost",6969)
+      val registry = LocateRegistry getRegistry("localhost",port)
       val stub = registry.lookup(name).asInstanceOf[client.ClientTrait]
       connected += name -> stub
     } catch {
