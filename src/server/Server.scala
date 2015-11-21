@@ -7,16 +7,18 @@ import scala.language.postfixOps
 import com.redis._
 import sun.util.calendar.JulianCalendar.Date
 import java.util.Calendar
+import scala.collection.mutable.Map
 import Shared._
 import java.util.HashMap
 
 class Server extends ServerTrait {
   val db: RedisClient = new RedisClient("localhost",6379)
-  val callbacks = new HashMap[String, ClientTrait]
+  val callbacks = new HashMap[String, client.ClientTrait]
   
-  def registerForCallback(userName: String,callback: ClientTrait): Unit = {
+  def registerForCallback(userName: String,callback: client.ClientTrait): Unit = {
     callbacks.put(userName, callback)
   }
+  val connected = Map[String,client.ClientTrait]()
   
   def searchUsers(name: String) : List[String] = {
     db.lrange("TWEETORRO:USERS", 0, -1)
@@ -32,6 +34,14 @@ class Server extends ServerTrait {
     db.set(s"TWEETORRO:DM:$id:USER", dm.user)
     db.set(s"TWEETORRO:DM:$id:MESSAGE", dm.msg)
     db.set(s"TWEETORRO:DM:$id:DATE", dm.date)
+    val lista = db.lrange(s"TWEETORRO:USERS:$userTo:DM", 0, -1)
+    lista.getOrElse(List()).flatten.filter { x => 
+      callbacks.containsKey(x) }.map { x => 
+        sendDMNotification(callbacks.get(x)) }
+  }
+  
+  def sendDMNotification(cliente: client.ClientTrait): Unit = {
+    cliente.notifyDM
   }
   
   def getDM(user: String, number: Int) : List[DMT] = {
@@ -72,8 +82,8 @@ class Server extends ServerTrait {
     db.set(s"TWEETORRO:TWEETS:tweet$id:ID",id)
   }
   
-  def sendNotification(client: ClientTrait): Unit = {
-    client.notifyMe()
+  def sendNotification(cliente: client.ClientTrait): Unit = {
+    cliente.notifyTweets
   }
   
   def retweet(user: String, tweetID: String): Boolean = {
@@ -83,6 +93,9 @@ class Server extends ServerTrait {
         if (!db.lrange("TWEETORRO:USERS:$x:TWEETS", 0, -1).get.contains(tweetID))
           db.lpush(s"TWEETORRO:USERS:$x:TWEETS", tweetID)
       }
+      lista.getOrElse(List()).flatten.filter { x => 
+      callbacks.containsKey(x) }.map { x => 
+        sendNotification(callbacks.get(x)) }
       db.lpush(s"TWEETORRO:USERS:$user:TWEETS", tweetID)
       true
     }else{
@@ -178,14 +191,20 @@ class Server extends ServerTrait {
     }
   }
 
-  def test(f: Shared.Test): Unit = {
-    f.f(5)
+  def justRegisterMe(name: String, port: Int): Unit = {
+    try {
+      Thread.sleep(2000)
+      val registry = LocateRegistry getRegistry("localhost",port)
+      val stub = registry.lookup(name).asInstanceOf[client.ClientTrait]
+      connected += name -> stub
+    } catch {
+      case e: Exception => e printStackTrace
+    }
   }
 }
 
 object Server {
-  def main(args: Array[String]): Unit = {
-    
+  def main(args: Array[String]): Unit = {    
     try {
       val server: ServerTrait = new Server
       val stub = UnicastRemoteObject.exportObject(server,0).asInstanceOf[ServerTrait]

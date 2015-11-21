@@ -13,7 +13,7 @@ trait ServerTrait extends Remote {
   import Shared._
   
   @throws(classOf[RemoteException])
-  def registerForCallback(userName: String,callback: ClientTrait): Unit
+  def registerForCallback(userName: String,callback: client.ClientTrait): Unit
   
   @throws(classOf[RemoteException])
   def searchUsers(name: String): List[String]
@@ -61,7 +61,7 @@ trait ServerTrait extends Remote {
   def getTweets(user: String, number: Int): List[DMT]
 
   @throws(classOf[RemoteException])
-  def test(f: Test): Unit
+  def justRegisterMe(name: String, port: Int): Unit
 }
 
 
