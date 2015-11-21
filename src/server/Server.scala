@@ -7,12 +7,13 @@ import scala.language.postfixOps
 import com.redis._
 import sun.util.calendar.JulianCalendar.Date
 import java.util.Calendar
+import scala.collection.mutable.Map
 
 import Shared._
 
 class Server extends ServerTrait {
   val db: RedisClient = new RedisClient("localhost",6379)
-  var connected = Map[String,client.ClientTrait]()
+  val connected = Map[String,client.ClientTrait]()
   
   def searchUsers(name: String) : List[String] = {
     db.lrange("TWEETORRO:USERS", 0, -1)
@@ -169,7 +170,8 @@ class Server extends ServerTrait {
 
   def justRegisterMe(name: String): Unit = {
     try {
-      val registry = LocateRegistry getRegistry("localhost")
+      Thread.sleep(2000)
+      val registry = LocateRegistry getRegistry("localhost",6969)
       val stub = registry.lookup(name).asInstanceOf[client.ClientTrait]
       connected += name -> stub
     } catch {
@@ -179,8 +181,7 @@ class Server extends ServerTrait {
 }
 
 object Server {
-  def main(args: Array[String]): Unit = {
-    
+  def main(args: Array[String]): Unit = {    
     try {
       val server: ServerTrait = new Server
       val stub = UnicastRemoteObject.exportObject(server,0).asInstanceOf[ServerTrait]
