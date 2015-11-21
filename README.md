@@ -111,7 +111,7 @@ En la implementacion de nuestro servidor se encuentran todas las funciones que s
 
 La base de datos esta planteada de la siguiente manera:
 
-![img](./bbdd.png)
+!][(https://redes.ls.fi.upm.es/090124/Tweetorro/blob/master/src/image/bbdd.png)
 
 ## Tweetorro-cli<a id="orgheadline6"></a>
 
