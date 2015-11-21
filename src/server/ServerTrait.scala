@@ -58,7 +58,7 @@ trait ServerTrait extends Remote {
   def getTweets(user: String, number: Int): List[DMT]
 
   @throws(classOf[RemoteException])
-  def test(f: Test): Unit
+  def justRegisterMe(name: String): Unit
 }
 
 

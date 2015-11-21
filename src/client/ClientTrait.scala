@@ -1,0 +1,1 @@
+/home/yagox//git/Tweetorro-client/src/client/ClientTrait.scala

@@ -12,6 +12,7 @@ import Shared._
 
 class Server extends ServerTrait {
   val db: RedisClient = new RedisClient("localhost",6379)
+  var connected = Map[String,client.ClientTrait]()
   
   def searchUsers(name: String) : List[String] = {
     db.lrange("TWEETORRO:USERS", 0, -1)
@@ -166,8 +167,14 @@ class Server extends ServerTrait {
     }
   }
 
-  def test(f: Shared.Test): Unit = {
-    f.f(5)
+  def justRegisterMe(name: String): Unit = {
+    try {
+      val registry = LocateRegistry getRegistry("localhost")
+      val stub = registry.lookup(name).asInstanceOf[client.ClientTrait]
+      connected += name -> stub
+    } catch {
+      case e: Exception => e printStackTrace
+    }
   }
 }
 

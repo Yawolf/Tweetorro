@@ -9,3 +9,6 @@ target/
 /.ensime_cache/dep-src/source-jars/akka/actor/Actor.scala
 /*.scala
 .ensime_cache
+/MediumLevel.png
+/README.org
+/bbdd.png
