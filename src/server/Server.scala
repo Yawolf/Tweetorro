@@ -208,6 +208,7 @@ class Server extends ServerTrait {
   }
 
   def justRemoveMe(name: String): Unit = {
+    connected.get(name).get.stopCallback(name)
     connected -= name
   }
 }
@@ -225,6 +226,5 @@ object Server {
     catch {
       case e: Exception => e printStackTrace
     }
-    
   }
 }
