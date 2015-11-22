@@ -45,7 +45,9 @@ class Server extends ServerTrait {
   
   def getDM(user: String, number: Int) : List[DMT] = {
     val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:DM", 0, -1)
-    listaIDs.getOrElse(List()).flatten.map(getDMTuple(_)).sortBy(_.date).reverse.take(number)
+    listaIDs.getOrElse(List()).flatten
+      .map(getDMTuple(_))
+      .sortBy(_.date).reverse.take(number)
   }
   
   def getDMTuple(DM: String): DMT = {
@@ -57,7 +59,8 @@ class Server extends ServerTrait {
   
   def getTweets(user: String,number: Int): List[DMT] = {
     val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:TWEETS",0,-1)
-    listaIDs.getOrElse(List()).flatten.map(getTweetTuple(_)).sortBy(_.date).reverse.take(number)
+    listaIDs.getOrElse(List()).flatten.map(getTweetTuple(_))
+      .sortBy(_.date).reverse.take(number)
   }
 
   def getTweetTuple(tweet: String): DMT = {
@@ -72,7 +75,8 @@ class Server extends ServerTrait {
     db.lpush(s"TWEETORRO:USERS:${tweet.user}:TWEETS", id)
     val user = tweet.user
     val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWERS", 0,-1)
-    lista.getOrElse(List()).flatten.foreach{ x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", s"tweet$id") }
+    lista.getOrElse(List()).flatten
+      .foreach{ x => db.lpush(s"TWEETORRO:USERS:$x:TWEETS", s"tweet$id") }
     lista.getOrElse(List()).flatten.filter { x => 
       connected.contains(x) }.map { x => 
         sendNotification(connected.get(x).get) }
@@ -114,9 +118,10 @@ class Server extends ServerTrait {
   }
   
   def logoutRemote(user: String): Boolean = {
+    justRemoveMe(user)
     db.set(s"TWEETORRO:USERS:$user:LOGGED",false)
-    true
   }
+
   def createUser(user: String, pass: String): Boolean = {
     val dbUser = s"TWEETORRO:USERS:$user"
     if (db.exists(s"$dbUser:PASSWORD"))
@@ -200,6 +205,10 @@ class Server extends ServerTrait {
     } catch {
       case e: Exception => e printStackTrace
     }
+  }
+
+  def justRemoveMe(name: String): Unit = {
+    connected -= name
   }
 }
 
