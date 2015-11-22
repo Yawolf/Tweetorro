@@ -34,10 +34,9 @@ class Server extends ServerTrait {
     db.set(s"TWEETORRO:DM:$id:USER", dm.user)
     db.set(s"TWEETORRO:DM:$id:MESSAGE", dm.msg)
     db.set(s"TWEETORRO:DM:$id:DATE", dm.date)
-    val lista = db.lrange(s"TWEETORRO:USERS:$userTo:DM", 0, -1)
-    lista.getOrElse(List()).flatten.filter { x => 
-      connected.contains(x) }.map { x => 
-        sendDMNotification(connected.get(x).get) }
+    if (connected.contains(userTo)){
+        sendDMNotification(connected.get(userTo).get)
+    }
   }
   
   def sendDMNotification(cliente: client.ClientTrait): Unit = {
@@ -46,7 +45,7 @@ class Server extends ServerTrait {
   
   def getDM(user: String, number: Int) : List[DMT] = {
     val listaIDs = db.lrange(s"TWEETORRO:USERS:$user:DM", 0, -1)
-    listaIDs.getOrElse(List()).flatten.map(getDMTuple(_)).sortBy(_.date).take(number)
+    listaIDs.getOrElse(List()).flatten.map(getDMTuple(_)).sortBy(_.date).reverse.take(number)
   }
   
   def getDMTuple(DM: String): DMT = {
@@ -164,16 +163,16 @@ class Server extends ServerTrait {
   }
   
   def follow(user:String, userF: String): Boolean = {
-    db.get(s"TWEETORRO:USERS:$user:LOGGED") match {
-      case Some("true") =>
-        db.lpush(s"TWEETORRO:USERS:$user:FOLLOWING", userF)
-        db.lpush(s"TWEETORRO:USERS:$userF:FOLLOWERS", user)
-        val listTweetsFollow = db.lrange(s"TWEETORRO:USERS:$userF:TWEETS",0,-1)
-        listTweetsFollow.getOrElse(List()).flatten.map( 
-          db.lpush(s"TWEETORRO:USERS:$user:TWEETS", _))
-        true
-      case _ => 
-        false
+    val lista = db.lrange(s"TWEETORRO:USERS:$user:FOLLOWING", 0,-1)
+    if(!lista.getOrElse(List()).contains(userF)){
+      db.lpush(s"TWEETORRO:USERS:$user:FOLLOWING", userF)
+      db.lpush(s"TWEETORRO:USERS:$userF:FOLLOWERS", user)
+      val listTweetsFollow = db.lrange(s"TWEETORRO:USERS:$userF:TWEETS",0,-1)
+      listTweetsFollow.getOrElse(List()).flatten.map( 
+      db.lpush(s"TWEETORRO:USERS:$user:TWEETS", _))
+      true
+    }else{
+      false
     }
   }
 
